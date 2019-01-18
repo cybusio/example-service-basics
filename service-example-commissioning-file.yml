@@ -17,7 +17,7 @@ general:
 grantees:
 - identifier: example-dashboard-client
   credentials: token
-  token: passwordshouldbediffrent
+  token: {{ Password }}
   purpose: To read simulation data for the Grafana Dashboard
   type: container
 #------------------------------------------------------------------------------#
@@ -43,7 +43,7 @@ containers:
   - MQTT_HOST=172.17.0.1
   - MQTT_USER=example-dashboard-client
   - MQTT_PORT=1883
-  - MQTT_PASS=passwordshouldbediffrent
+  - MQTT_PASS={{ Password }}
   - MQTT_ROOT_TOPIC=cybus/learn/simulation/#
   - INFLUX_HOST=influxdb
   - INFLUX_PORT=8086
