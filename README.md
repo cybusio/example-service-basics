@@ -4,4 +4,4 @@ In this repo you will find an example Service Commissioning File
 Device Commissioning File (./device-simulation-commissioning-file.yml) that is
 needed to provide data to the service. For details on the contents of these
 files and how to use them check out the lesson
-[here](https://learn.cybus.io/lessons/how-to-connect-and-integrate-an-opcua-server/).
+[here](https://learn.cybus.io/lessons/service-basics/).
