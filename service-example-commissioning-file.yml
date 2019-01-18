@@ -1,0 +1,70 @@
+#------------------------------------------------------------------------------#
+# CYBUS SERVICE COMMISSIONING                                                  #
+#------------------------------------------------------------------------------#
+general:
+  title: Example Grafana Dashboard
+  identifier: example-dashboard
+  version: 1.0
+  description: >
+    Example Grafana Dashboard
+  icon: https://assets.packet.net/media/pages/images/a8849b052492b5106526b2331e526138/xCMw-grafana.png
+  provider: cybus
+  homepage: https://cybus.io
+  terms: Prototype
+#------------------------------------------------------------------------------#
+# LIST OF INTERNAL SERVICE USERS                                               #
+#------------------------------------------------------------------------------#
+grantees:
+- identifier: example-dashboard-client
+  credentials: token
+  token: passwordshouldbediffrent
+  purpose: To read simulation data for the Grafana Dashboard
+  type: container
+#------------------------------------------------------------------------------#
+# LIST OF SERVICE POLICIES                                                     #
+#------------------------------------------------------------------------------#
+policies:
+- grantee: example-dashboard-client
+  purpose: Read simulation data
+  policy: ReadData
+  constraints:
+    topic: cybus/learn/simulation/#
+#------------------------------------------------------------------------------#
+# CONTAINERS THE SERVICE WILL OPERATE                                          #
+#------------------------------------------------------------------------------#
+containers:
+- image: grafana/grafana:4.0.1
+  name: dashboard
+  env:
+    - GF_SERVER_ROOT_URL=/services/cybus/example-dashboard/web
+- image: registry.cybus.io/cybus-services/influxdb-push:0.0.2
+  name: influxdb-push
+  env:
+  - MQTT_HOST=172.17.0.1
+  - MQTT_USER=example-dashboard-client
+  - MQTT_PORT=1883
+  - MQTT_PASS=passwordshouldbediffrent
+  - MQTT_ROOT_TOPIC=cybus/learn/simulation/#
+  - INFLUX_HOST=influxdb
+  - INFLUX_PORT=8086
+  - INFLUX_DB=generic
+  - HTTP_ROOT=/services/cybus/example-dashboard/web
+- image: influxdb:1.6.2-alpine
+  name: influxdb
+  env:
+    - INFLUXDB_DB=generic
+#------------------------------------------------------------------------------#
+# FRONTENDS FOR THE SERVICE                                                    #
+#------------------------------------------------------------------------------#
+frontends:
+- type: http
+  slug: web
+  name: Grafana
+  description: Grafana Dashboard Frontend
+  target:
+    container: dashboard
+    port: 3000
+    path: ''
+  buttons:
+  - name: Dashboard
+    href: /services/cybus/example-dashboard/web/
