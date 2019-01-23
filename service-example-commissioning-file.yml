@@ -37,6 +37,7 @@ containers:
   name: dashboard
   env:
     - GF_SERVER_ROOT_URL=/services/cybus/example-dashboard/web
+    - GF_AUTH_ANONYMOUS_ENABLED=true
 - image: registry.cybus.io/cybus-services/influxdb-push:0.0.2
   name: influxdb-push
   env:
