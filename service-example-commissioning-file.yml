@@ -1,71 +1,194 @@
-#------------------------------------------------------------------------------#
-# CYBUS SERVICE COMMISSIONING                                                  #
-#------------------------------------------------------------------------------#
-general:
-  title: Example Grafana Dashboard
-  identifier: example-dashboard
-  version: 1.0
-  description: >
-    Example Grafana Dashboard
-  icon: https://assets.packet.net/media/pages/images/a8849b052492b5106526b2331e526138/xCMw-grafana.png
-  provider: cybus
-  homepage: https://cybus.io
-  terms: Prototype
-#------------------------------------------------------------------------------#
-# LIST OF INTERNAL SERVICE USERS                                               #
-#------------------------------------------------------------------------------#
-grantees:
-- identifier: example-dashboard-client
-  credentials: token
-  token: {{ Password }}
-  purpose: To read simulation data for the Grafana Dashboard
-  type: container
-#------------------------------------------------------------------------------#
-# LIST OF SERVICE POLICIES                                                     #
-#------------------------------------------------------------------------------#
-policies:
-- grantee: example-dashboard-client
-  purpose: Read simulation data
-  policy: ReadData
-  constraints:
-    topic: cybus/learn/simulation/#
-#------------------------------------------------------------------------------#
-# CONTAINERS THE SERVICE WILL OPERATE                                          #
-#------------------------------------------------------------------------------#
-containers:
-- image: grafana/grafana:4.0.1
-  name: dashboard
-  env:
-    - GF_SERVER_ROOT_URL=/services/cybus/example-dashboard/web
-    - GF_AUTH_ANONYMOUS_ENABLED=true
-- image: registry.cybus.io/cybus-services/influxdb-push:0.0.2
-  name: influxdb-push
-  env:
-  - MQTT_HOST=172.17.0.1
-  - MQTT_USER=example-dashboard-client
-  - MQTT_PORT=1883
-  - MQTT_PASS={{ Password }}
-  - MQTT_ROOT_TOPIC=cybus/learn/simulation/#
-  - INFLUX_HOST=influxdb
-  - INFLUX_PORT=8086
-  - INFLUX_DB=generic
-  - HTTP_ROOT=/services/cybus/example-dashboard/web
-- image: influxdb:1.6.2-alpine
-  name: influxdb
-  env:
-    - INFLUXDB_DB=generic
-#------------------------------------------------------------------------------#
-# FRONTENDS FOR THE SERVICE                                                    #
-#------------------------------------------------------------------------------#
-frontends:
-- type: http
-  slug: web
-  name: Grafana
-  description: Grafana Dashboard Frontend
-  target:
-    container: dashboard
-    port: 3000
-    path: ''
-  buttons:
-  - name: Dashboard
-    href: /services/cybus/example-dashboard/web/
+#------------------------------------------------------------------------------
+# CYBUS SERVICE COMMISSIONING
+#------------------------------------------------------------------------------
+
+description: |
+  Service Commissioning File Example
+  Cybus Learn - Service Basics
+  https://learn.cybus.io/lessons/service-basics/
+
+metadata:
+  name: Service Basics Example
+  version: 0.0.1
+  icon: https://www.cybus.io/wp-content/uploads/2019/03/Cybus-logo-Claim-lang.svg
+  provider: Cybus GmbH
+  homepage: https://www.cybus.io
+
+#------------------------------------------------------------------------------
+# Parameters
+#------------------------------------------------------------------------------
+parameters:
+    
+  opcuaHost:
+    type: string
+    description: OPC UA Host Address
+    default: opcuaserver.com
+
+  opcuaPort:
+    type: integer
+    description: OPC UA Host Port
+    default: 48010
+
+#------------------------------------------------------------------------------
+# Resources
+#------------------------------------------------------------------------------
+resources:
+
+  #----------------------------------------------------------------------------
+  # USERS
+  #----------------------------------------------------------------------------
+
+  # purpose: Forwards data to InfluxDB and provides a Grafana instance
+  dataMonitor:
+    type: Cybus::User
+    properties:
+      password: !ref Cybus::MqttPassword
+      roles:
+        - !ref dataReaderRole
+      permissions: []
+
+  #----------------------------------------------------------------------------
+  # ROLES
+  #----------------------------------------------------------------------------
+
+  # purpose: Reads data from specified MQTT topic
+  dataReaderRole:
+    type: Cybus::Role
+    properties:
+      permissions:
+        - resource: 'building-automation/#'
+          operation: read
+          context: mqtt
+          
+  #----------------------------------------------------------------------------
+  # CONNECTIONS
+  #----------------------------------------------------------------------------
+      
+  opcuaConnection:
+    type: Cybus::Connection
+    properties:
+      protocol: Opcua
+      connection:
+        host: !ref opcuaHost
+        port: !ref opcuaPort
+        #username: myUsername
+        #password: myPassword
+          
+  #----------------------------------------------------------------------------
+  # ENDPOINTS
+  #----------------------------------------------------------------------------
+  
+  Humidity:
+    type: Cybus::Endpoint
+    properties:
+      protocol: Opcua
+      connection: !ref opcuaConnection
+      subscribe:
+        nodeId: ns=3;s=AirConditioner_1.Humidity
+        
+  PowerConsumption:
+    type: Cybus::Endpoint
+    properties:
+      protocol: Opcua
+      connection: !ref opcuaConnection
+      subscribe:
+        nodeId: ns=3;s=AirConditioner_1.PowerConsumption
+        
+  Temperature:
+    type: Cybus::Endpoint
+    properties:
+      protocol: Opcua
+      connection: !ref opcuaConnection
+      subscribe:
+        nodeId: ns=3;s=AirConditioner_1.Temperature
+
+  #----------------------------------------------------------------------------
+  # MAPPINGS
+  #----------------------------------------------------------------------------
+  
+  mapping:
+    type: Cybus::Mapping
+    properties:
+      mappings:
+        - subscribe:
+            endpoint: !ref Humidity
+          publish:
+            topic: !sub 'building-automation/airconditioner/1/humidity'
+        - subscribe:
+            endpoint: !ref PowerConsumption
+          publish:
+            topic: !sub 'building-automation/airconditioner/1/power-consumption'
+        - subscribe:
+            endpoint: !ref Temperature
+          publish:
+            topic: !sub 'building-automation/airconditioner/1/temperature'
+
+  #----------------------------------------------------------------------------
+  # VOLUMES
+  #----------------------------------------------------------------------------
+
+  grafanaVolume:
+    type: Cybus::Volume
+
+  influxdbVolume:
+    type: Cybus::Volume
+
+  #----------------------------------------------------------------------------
+  # FRONTENDS
+  #----------------------------------------------------------------------------
+
+  # Grafana
+  grafanaURL:
+    type: Cybus::IngressRoute
+    properties:
+      container: !ref genericGrafana
+      type: http
+      slug: grafana
+      target:
+        path: '/'
+        port: 3000
+
+  dashboard:
+    type: Cybus::Link
+    properties:
+      name: Dashboard
+      ingressRoute: !ref grafanaURL
+      href: ''
+
+  #----------------------------------------------------------------------------
+  # CONTAINERS
+  #----------------------------------------------------------------------------
+
+  influxdb:
+    type: Cybus::Container
+    properties:
+      image: registry.cybus.io/cybus-services/influxdb:1.7.8-alpine
+      volumes:
+        - !sub '${influxdbVolume}:/var/lib/influxdb'
+      environment:
+        INFLUXDB_DB: generic
+
+  genericGrafana:
+    type: Cybus::Container
+    properties:
+      image: registry.cybus.io/cybus-services/generic-grafana:1.3.0
+      volumes:
+        - !sub '${grafanaVolume}:/var/lib/grafana'
+      environment:
+        GF_SERVER_ROOT_URL: !sub '/services/${Cybus::ServiceId}/grafana'
+        GF_AUTH_ANONYMOUS_ENABLED: true
+        INFLUX_HOST: !ref influxdb
+        INFLUX_PORT: 8086
+        INFLUX_DB: generic
+
+  influxdbPush:
+    type: Cybus::Container
+    properties:
+      image: registry.cybus.io/cybus-services/cybus-influxdb-push:2.0.1
+      environment:
+        MQTT_HOST: !ref Cybus::MqttHost
+        MQTT_USERNAME: !sub '${Cybus::ServiceId}.dataMonitor'
+        MQTT_PASSWORD: !ref Cybus::MqttPassword
+        MQTT_SUBSCRIPTIONS: 'building-automation/#'
+        INFLUXDB_HOST: !ref influxdb
+
