@@ -9,7 +9,7 @@ description: |
 
 metadata:
   name: Service Basics Example
-  version: 0.0.1
+  version: 0.0.2
   icon: https://www.cybus.io/wp-content/uploads/2019/03/Cybus-logo-Claim-lang.svg
   provider: Cybus GmbH
   homepage: https://www.cybus.io
@@ -33,35 +33,9 @@ parameters:
 # Resources
 #------------------------------------------------------------------------------
 resources:
-
-  #----------------------------------------------------------------------------
-  # USERS
-  #----------------------------------------------------------------------------
-
-  # purpose: Forwards data to InfluxDB and provides a Grafana instance
-  dataMonitor:
-    type: Cybus::User
-    properties:
-      password: !ref Cybus::MqttPassword
-      roles:
-        - !ref dataReaderRole
-      permissions: []
-
-  #----------------------------------------------------------------------------
-  # ROLES
-  #----------------------------------------------------------------------------
-
-  # purpose: Reads data from specified MQTT topic
-  dataReaderRole:
-    type: Cybus::Role
-    properties:
-      permissions:
-        - resource: 'building-automation/#'
-          operation: read
-          context: mqtt
           
   #----------------------------------------------------------------------------
-  # CONNECTIONS
+  # OPC UA Connection
   #----------------------------------------------------------------------------
       
   opcuaConnection:
@@ -73,10 +47,6 @@ resources:
         port: !ref opcuaPort
         #username: myUsername
         #password: myPassword
-          
-  #----------------------------------------------------------------------------
-  # ENDPOINTS
-  #----------------------------------------------------------------------------
   
   Humidity:
     type: Cybus::Endpoint
@@ -103,10 +73,32 @@ resources:
         nodeId: ns=3;s=AirConditioner_1.Temperature
 
   #----------------------------------------------------------------------------
+  # InfluxDB Connection
+  #----------------------------------------------------------------------------
+
+  influxdbConnection:
+    type: Cybus::Connection
+    properties:
+      protocol: Influxdb
+      connection:
+        host: connectware
+        port: 8086
+        bucket: generic
+        scheme: http
+
+  airconditionerWrite:
+    type: Cybus::Endpoint
+    properties:
+      protocol: Influxdb
+      connection: !ref influxdbConnection
+      write:
+        measurement: airconditioner
+
+  #----------------------------------------------------------------------------
   # MAPPINGS
   #----------------------------------------------------------------------------
   
-  mapping:
+  mqttMapping:
     type: Cybus::Mapping
     properties:
       mappings:
@@ -122,6 +114,18 @@ resources:
             endpoint: !ref Temperature
           publish:
             topic: !sub 'building-automation/airconditioner/1/temperature'
+        
+  influxdbMapping:
+    type: Cybus::Mapping
+    properties:
+      mappings:  
+        - subscribe:
+            topic: 'building-automation/airconditioner/1/+measurement'
+          publish:
+            endpoint: !ref airconditionerWrite
+          rules:
+            - transform:
+                expression: '$merge([$,{"measurement": $context.vars.measurement}])'
 
   #----------------------------------------------------------------------------
   # VOLUMES
@@ -134,7 +138,7 @@ resources:
     type: Cybus::Volume
 
   #----------------------------------------------------------------------------
-  # FRONTENDS
+  # INGRESS ROUTES
   #----------------------------------------------------------------------------
 
   # Grafana
@@ -147,6 +151,19 @@ resources:
       target:
         path: '/'
         port: 3000
+
+  # InfluxDB
+  influxdbRoute:
+    type: Cybus::IngressRoute
+    properties:
+      container: !ref influxdb
+      type: tcp
+      containerPort: 8086
+      connectwarePort: 8086
+
+  #----------------------------------------------------------------------------
+  # FRONTENDS
+  #----------------------------------------------------------------------------
 
   dashboard:
     type: Cybus::Link
@@ -162,11 +179,12 @@ resources:
   influxdb:
     type: Cybus::Container
     properties:
-      image: registry.cybus.io/cybus-services/influxdb:1.7.8-alpine
+      image: registry.cybus.io/cybus-services/influxdb:1.8-alpine
       volumes:
         - !sub '${influxdbVolume}:/var/lib/influxdb'
       environment:
         INFLUXDB_DB: generic
+        INFLUXDB_HTTP_FLUX_ENABLED: true
 
   genericGrafana:
     type: Cybus::Container
@@ -180,15 +198,3 @@ resources:
         INFLUX_HOST: !ref influxdb
         INFLUX_PORT: 8086
         INFLUX_DB: generic
-
-  influxdbPush:
-    type: Cybus::Container
-    properties:
-      image: registry.cybus.io/cybus-services/cybus-influxdb-push:2.0.1
-      environment:
-        MQTT_HOST: !ref Cybus::MqttHost
-        MQTT_USERNAME: !sub '${Cybus::ServiceId}.dataMonitor'
-        MQTT_PASSWORD: !ref Cybus::MqttPassword
-        MQTT_SUBSCRIPTIONS: 'building-automation/#'
-        INFLUXDB_HOST: !ref influxdb
-
