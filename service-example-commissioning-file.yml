@@ -9,7 +9,7 @@ description: |
 
 metadata:
   name: Service Basics Example
-  version: 0.0.2
+  version: 0.0.3
   icon: https://www.cybus.io/wp-content/uploads/2019/03/Cybus-logo-Claim-lang.svg
   provider: Cybus GmbH
   homepage: https://www.cybus.io
@@ -179,7 +179,7 @@ resources:
   influxdb:
     type: Cybus::Container
     properties:
-      image: registry.cybus.io/cybus-services/influxdb:1.8-alpine
+      image: registry.hub.docker.com/library/influxdb:1.8-alpine
       volumes:
         - !sub '${influxdbVolume}:/var/lib/influxdb'
       environment:
