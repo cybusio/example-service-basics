@@ -9,7 +9,7 @@ description: |
 
 metadata:
   name: Service Basics Example
-  version: 0.0.3
+  version: 0.0.4
   icon: https://www.cybus.io/wp-content/uploads/2019/03/Cybus-logo-Claim-lang.svg
   provider: Cybus GmbH
   homepage: https://www.cybus.io
@@ -105,15 +105,15 @@ resources:
         - subscribe:
             endpoint: !ref Humidity
           publish:
-            topic: !sub 'building-automation/airconditioner/1/humidity'
+            topic: 'building-automation/airconditioner/1/humidity'
         - subscribe:
             endpoint: !ref PowerConsumption
           publish:
-            topic: !sub 'building-automation/airconditioner/1/power-consumption'
+            topic: 'building-automation/airconditioner/1/power-consumption'
         - subscribe:
             endpoint: !ref Temperature
           publish:
-            topic: !sub 'building-automation/airconditioner/1/temperature'
+            topic: 'building-automation/airconditioner/1/temperature'
         
   influxdbMapping:
     type: Cybus::Mapping
